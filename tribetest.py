@@ -16,7 +16,6 @@ generated at one point.
 
 #Here I am going to call all of my import statements that I will need for my game as needed. 
 
-
 import pygame
 from pygame.locals import *
 import sys
@@ -28,7 +27,7 @@ pygame.init()
 # Constants for my screen
 SCREEN_WIDTH, SCREEN_HEIGHT = 1600, 900 #basic screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)) #basic variable using the screen variables width and height above
-pygame.display.set_caption('TribalSandbox   Tristan Dombroski     Version 0.002 "Berries and Bushes"') #this sets a caption for the application itself
+pygame.display.set_caption('TribalSandbox   Tristan Dombroski     Version 0.001 "Place and Replace"') #this sets a caption for the application itself
 
 clock = pygame.time.Clock() #this will be used to measure time/frames in the game
 
@@ -200,6 +199,7 @@ while running:
     # Render the visible portion of the tilemap based on camera position
     # Render the tilemap
     
+ 
 
     #this handles blitting my tiles into the game itself so it becomes the environment
     for row in range(start_row, min(end_row, MAP_SIZE)):
