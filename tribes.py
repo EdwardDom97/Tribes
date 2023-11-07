@@ -13,9 +13,9 @@ generated at one point.
 
 '''
 
+#11/06/23 adding in a crafting window
 
 #Here I am going to call all of my import statements that I will need for my game as needed. 
-
 
 import pygame
 from pygame.locals import *
@@ -39,6 +39,9 @@ MAP_SIZE = 96
 #size of tiles
 TILE_SIZE = 64
 
+#camera
+camera_x, camera_y = 0, 0
+
 # In the beginning of the file, after pygame.init() load the player and assign a rectangle along with other important variables (classes could also be used)
 player_image = pygame.image.load('graphics/player.png').convert_alpha()
 player_rect = player_image.get_rect()
@@ -59,19 +62,43 @@ blockwall_surface = pygame.image.load('graphics/blockwall.png').convert_alpha()
 #stone_tile_icon = pygame.image.load('graphics/stone_tile.png').convert_alpha()
 
 
-
 #Here I want to make the hotbarfor my game
 hotbar_image = pygame.image.load('graphics/hotbar.png')
 hotbar_rect = hotbar_image.get_rect()
 #hotbar = [None] * 9
-
 # Coordinates for the top-left corner of the hotbar slots
 hotbar_slot_x, hotbar_slot_y = 400, 64
-
 # Width of each slot in the hotbar
 hotbar_slot_width = 64
-
 selected_slot = 0 #sets the inital value to 0 for bordering
+
+
+#here I am going to attempt the 2nd crafting window
+crafting_window_image = pygame.image.load('graphics/crafting_window.png').convert_alpha()
+crafting_window_rect = crafting_window_image.get_rect(midleft=(400,550))
+show_crafting_window = False
+
+#here is an image for the crafting window, its a wood_spear
+wood_spear_image = pygame.image.load('graphics/wood_spear_icon.png')
+wood_spear_image_rect = wood_spear_image.get_rect(midleft=(450,475))
+
+
+#first enemy entity being lazy with it just making a variable image and rect and will blit to a random location
+weak_enemies = []
+num_weak_enemies = 10
+
+class WeakEnemy:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.image = pygame.image.load('graphics/grassmonster.png').convert_alpha()
+        self.rect = self.image.get_rect(topleft=(x, y))
+
+for _ in range(num_weak_enemies):
+    x = random.randint(0, (MAP_SIZE - 1) * TILE_SIZE)
+    y = random.randint(0, (MAP_SIZE - 1) * TILE_SIZE)
+    weak_enemy = WeakEnemy(x, y)
+    weak_enemies.append(weak_enemy)
 
 
 class Hotbar:
@@ -126,6 +153,42 @@ for _ in range(MAX_REDBERRYBUSHES):  # MAX_REDBERRYBUSHES is your defined maximu
     redberrybushes.append(redberrybush)
 
 
+
+#here I am going to make a copper crop class to spawn in like my bushes for damian
+class Coppercrop:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.image = pygame.image.load('graphics/copper_crop.png').convert_alpha()
+        self.rect = self.image.get_rect()
+        self.rect.topleft = (x, y)
+
+        # List of items that can be dropped from the bush
+        self.dropped_items = ['copper_chunk.png']
+
+    def harvest(self):
+        # Remove the bush from the list of redberry bushes (assuming you have a list named redberrybushes)
+        coppercrops.remove(self)
+
+        # Randomly select an item from the dropped items list
+        dropped_item = random.choice(self.dropped_items)
+
+        return(dropped_item)
+
+
+
+# Create a list to store redberrybush objects
+coppercrops = []
+MAX_COPPERCROPS = 8
+
+# Spawn cropper crops randomly on the map
+for _ in range(MAX_COPPERCROPS):  # MAX_COPPERCROPS is your defined maximum count
+    x = random.randint(0, MAP_SIZE - 1) * TILE_SIZE
+    y = random.randint(0, MAP_SIZE - 1) * TILE_SIZE
+    coppercrop = Coppercrop(x, y)
+    coppercrops.append(coppercrop)
+
+
 # Define tile types (you can use numbers to represent different tile types)
 GROUND = 0
 GRASS = 1
@@ -152,7 +215,7 @@ for _ in range(int(0.02 * MAP_SIZE ** 2)):  # Adjust the density of grass tiles 
     tilemap[row][col] = GRASS
 
 
-camera_x, camera_y = 0, 0
+
 
 
 running = True
@@ -172,6 +235,9 @@ while running:
             if event.key in [K_1, K_2, K_3, K_4, K_5, K_6, K_7, K_8, K_9]:
                 # Subtracting K_1 from the pressed key gives the slot index (0-8)
                 selected_slot = event.key - K_1
+
+            if event.key == K_c:
+                show_crafting_window = not show_crafting_window
 
         elif event.type == KEYUP:
             if event.key == K_e:
@@ -223,6 +289,18 @@ while running:
     for redberrybush in redberrybushes:
         bush_x, bush_y = redberrybush.x - camera_x, redberrybush.y - camera_y
         screen.blit(redberrybush.image, (bush_x, bush_y))
+
+    #here I want to blit or display my copper crops
+    for coppercrop in coppercrops:
+        crop_x, crop_y = coppercrop.x - camera_x, coppercrop.y - camera_y
+        screen.blit(coppercrop.image, (crop_x, crop_y))
+
+    #here I want to display my weak enemies
+    for weak_enemy in weak_enemies:
+        weak_enemy.rect.topleft = (weak_enemy.x - camera_x, weak_enemy.y - camera_y)
+        screen.blit(weak_enemy.image, weak_enemy.rect)
+
+    # You can add additional logic here, like enemy movement, collision checks, etc.
             
 
     # Generate ponds only if the number of existing ponds is less than MAX_POND_AMOUNT
@@ -266,15 +344,28 @@ while running:
                 dropped_item = redberrybush.harvest()
                 
                 hotbar.add_item(dropped_item)
+
+        #checks to see if player is colliding with a copper crop and interacting
+        for coppercrop in coppercrops:
+            if player_rect.colliderect(coppercrop.rect) and interact:
+                dropped_item = coppercrop.harvest()
+                
+                hotbar.add_item(dropped_item)
                 
                 #item_image = pygame.image.load(f'graphics/{dropped_item}').convert_alpha()
                 #screen.blit(item_image, (200, 200))  # Blit the dropped item at (200, 200) for verification
                 
 
     # Draw Game Elements Here
-    
+    if show_crafting_window:
+        screen.blit(crafting_window_image, crafting_window_rect.topleft)
+        screen.blit(wood_spear_image, wood_spear_image_rect)
+
+
     # Draw the player on the screen relative to the camera position
     screen.blit(player_image, (player_x - camera_x, player_y - camera_y))
+
+    
 
   
     screen.blit(hotbar.image, (hotbar_slot_x, hotbar_slot_y))
