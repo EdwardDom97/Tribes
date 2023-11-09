@@ -46,7 +46,7 @@ camera_x, camera_y = 0, 0
 player_image = pygame.image.load('graphics/player.png').convert_alpha()
 player_rect = player_image.get_rect()
 player_x, player_y = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2  # Initial player position
-player_speed = 5  # Adjust the speed as needed
+player_speed = 8  # Adjust the speed as needed
 interact = False
 
 
@@ -57,11 +57,29 @@ water_surface = pygame.image.load('graphics/water.png').convert_alpha()
 blockwall_surface = pygame.image.load('graphics/blockwall.png').convert_alpha()
 
 
-# Load building tile icon images
-#wood_tile_icon = pygame.image.load('graphics/wood_tile.png').convert_alpha()
-#stone_tile_icon = pygame.image.load('graphics/stone_tile.png').convert_alpha()
+#following images will be displayed on crafting window for now
+# Load building tiles icon images
+#trying to keep building blocks icons and other things as images
+#wood tile
+wood_tile_icon = pygame.image.load('graphics/wood_tile.png').convert_alpha()
+wood_tile_icon_rect = wood_tile_icon.get_rect(midleft=(500, 550))
+#stone tile
+stone_tile_icon = pygame.image.load('graphics/stone_tile.png').convert_alpha()
+stone_tile_icon_rect = stone_tile_icon.get_rect(midleft=(600, 650))
 
 
+#here is an image for the crafting window, its a wood_spear
+wood_spear_image = pygame.image.load('graphics/wood_spear.png')
+wood_spear_image_rect = wood_spear_image.get_rect(midleft=(450,475))
+
+#first consumable item
+#Red Berry Snack
+redberrysnack_image = pygame.image.load('graphics/redberrysnack.png')
+redberrysnack_icon_rect = redberrysnack_image.get_rect(midleft=(600, 550))
+
+#here I am going to make and blit a help window in the top right
+help_window = pygame.image.load('graphics/help_window.png')
+help_window_rect = help_window.get_rect(topleft=(1100,100))
 #Here I want to make the hotbarfor my game
 hotbar_image = pygame.image.load('graphics/hotbar.png')
 hotbar_rect = hotbar_image.get_rect()
@@ -77,10 +95,8 @@ selected_slot = 0 #sets the inital value to 0 for bordering
 crafting_window_image = pygame.image.load('graphics/crafting_window.png').convert_alpha()
 crafting_window_rect = crafting_window_image.get_rect(midleft=(400,550))
 show_crafting_window = False
+show_help_window = True
 
-#here is an image for the crafting window, its a wood_spear
-wood_spear_image = pygame.image.load('graphics/wood_spear_icon.png')
-wood_spear_image_rect = wood_spear_image.get_rect(midleft=(450,475))
 
 
 #first enemy entity being lazy with it just making a variable image and rect and will blit to a random location
@@ -113,6 +129,10 @@ class Hotbar:
             if self.items[i] is None:
                 self.items[i] = item
                 break
+    def remove_item(self, item):
+        # Remove the specified item from the hotbar, if present
+        if item in self.items:
+            self.items.remove(item)
 
 #creating a hotbar instance with a size of 9
 hotbar = Hotbar(9, hotbar_image)
@@ -137,13 +157,19 @@ class Redberrybush:
         # Randomly select an item from the dropped items list
         dropped_item = random.choice(self.dropped_items)
 
+       
         return(dropped_item)
-
-
+        
 
 # Create a list to store redberrybush objects
 redberrybushes = []
-MAX_REDBERRYBUSHES = 8
+MAX_REDBERRYBUSHES = 16
+REDBERRYBUSH_SPAWN_COOLDOWN = 5  # 500 milliseconds (5 seconds)
+# Initialize timer variables
+redberrybush_spawn_timer = 0
+current_redberrybush_count = 0
+
+
 
 # Spawn redberrybushes randomly on the map
 for _ in range(MAX_REDBERRYBUSHES):  # MAX_REDBERRYBUSHES is your defined maximum count
@@ -164,7 +190,7 @@ class Coppercrop:
         self.rect.topleft = (x, y)
 
         # List of items that can be dropped from the bush
-        self.dropped_items = ['copper_chunk.png']
+        self.dropped_items = ['copper_chunk.png', 'stone_chunk.png']
 
     def harvest(self):
         # Remove the bush from the list of redberry bushes (assuming you have a list named redberrybushes)
@@ -188,11 +214,32 @@ for _ in range(MAX_COPPERCROPS):  # MAX_COPPERCROPS is your defined maximum coun
     coppercrop = Coppercrop(x, y)
     coppercrops.append(coppercrop)
 
+class CraftedItem:
+    def __init__(self, image, recipe):
+        self.image = image  # Image path of the crafted item
+        self.recipe = recipe  # Recipe pattern for crafting this item
+
+
+#crafting format goes: { (('material','material'),): 'crafted_item', (('material','material'),): 'crafted_item', }
+crafting_recipes = {
+    (('woodstick.png', 'woodstick.png', 'leaf.png'),): 'wood_tile.png',
+    (('copper_chunk.png', 'copper_chunk.png', 'woodstick.png'),): 'wood_spear.png',
+    (('redberry.png', 'redberry.png', 'bushleaf.png'),): 'redberrysnack.png',
+    (('stone_chunk.png', 'stone_chunk.png'),): 'stone_tile.png'
+    # Add more recipes as desired
+}
+
+#variable for crafting window
+items_to_remove = []  # Define items_to_remove outside the event loop
+
+
 
 # Define tile types (you can use numbers to represent different tile types)
 GROUND = 0
 GRASS = 1
 WATER = 2
+WOODTILE = 3
+STONETILE = 4
 
 # Define more tile types or tile variables as needed...
 MAX_POND_AMOUNT = 5  # Set the maximum number of ponds allowed
@@ -217,7 +264,6 @@ for _ in range(int(0.02 * MAP_SIZE ** 2)):  # Adjust the density of grass tiles 
 
 
 
-
 running = True
 
 
@@ -232,6 +278,15 @@ while running:
             if event.key == K_e:
                 interact = True
 
+            elif event.key == K_z:
+                # Remove the selected item from the hotbar
+                selected_item = hotbar.items[selected_slot]
+                if selected_item:
+                    hotbar.remove_item(selected_item)
+
+            elif event.key == K_h:
+                show_help_window = True
+
             if event.key in [K_1, K_2, K_3, K_4, K_5, K_6, K_7, K_8, K_9]:
                 # Subtracting K_1 from the pressed key gives the slot index (0-8)
                 selected_slot = event.key - K_1
@@ -242,11 +297,109 @@ while running:
         elif event.type == KEYUP:
             if event.key == K_e:
                 interact = False
+            if event.key == K_h:
+                show_help_window = not show_help_window
+
+        #elif event.type == MOUSEBUTTONDOWN:
+        #    mouse_x, mouse_y = event.pos
+        #    world_x, world_y = mouse_x + camera_x, mouse_y + camera_y
+        #    tile_x, tile_y = world_x // TILE_SIZE, world_y // TILE_SIZE
 
         elif event.type == MOUSEBUTTONDOWN:
             mouse_x, mouse_y = event.pos
-            world_x, world_y = mouse_x + camera_x, mouse_y + camera_y
-            tile_x, tile_y = world_x // TILE_SIZE, world_y // TILE_SIZE
+            items_to_remove.clear() #this clears the list of items that will be used in crafting for later purposes
+            selected_item = hotbar.items[selected_slot] #this variable allows me to check what is selected in the hotbar and perform actions with it
+
+
+            #the initial code sections below are for crafting
+            # Check for mouse click on wood_spear icon
+            if wood_spear_image_rect.collidepoint(mouse_x, mouse_y):
+                if all(item in hotbar.items for item in ('woodstick.png', 'copper_chunk.png')):
+                    #this following code line is for testing purposes
+                    #print('you clicked here')
+                    #show_crafting_window = False
+                    # add the crafted item, wood_spear               
+                    hotbar.add_item('wood_spear.png')
+                    #remove the crafting materials
+                    hotbar.remove_item('woodstick.png')
+                    hotbar.remove_item('copper_chunk.png')
+                    show_crafting_window = False
+
+
+            # Check for mouse click on wood_tile icon
+            elif wood_tile_icon_rect.collidepoint(mouse_x, mouse_y):
+                # Craft wood_tile if player has required materials in the hotbar
+                if all(item in hotbar.items for item in ('woodstick.png', 'bushleaf.png')):
+                    hotbar.add_item('wood_tile.png')
+                    # Remove consumed materials from the hotbar
+                    hotbar.remove_item('woodstick.png')
+                    hotbar.remove_item('bushleaf.png')
+                    show_crafting_window = False
+
+            # Check for mouse click on wood_tile icon
+            elif stone_tile_icon_rect.collidepoint(mouse_x, mouse_y):
+                # Craft wood_tile if player has required materials in the hotbar
+                if all(item in hotbar.items for item in ('stone_chunk.png', 'stone_chunk.png')):
+                    hotbar.add_item('stone_tile.png')
+                    # Remove consumed materials from the hotbar
+                    hotbar.remove_item('stone_chunk.png')
+                    hotbar.remove_item('stone_chunk.png')
+                    show_crafting_window = False
+
+
+            # Check for mouse click on redberrysnack icon
+            elif redberrysnack_icon_rect.collidepoint(mouse_x, mouse_y):
+                # Craft redberrysnack if player has required materials in the hotbar
+                if all(item in hotbar.items for item in ('redberry.png', 'bushleaf.png')):
+                    hotbar.add_item('redberrysnack.png')
+                    # Remove consumed materials from the hotbar
+                    hotbar.remove_item('redberry.png')
+                    hotbar.remove_item('bushleaf.png')
+                    show_crafting_window = False
+            # Check for mouse click on other item icons and handle crafting logic similarly...
+
+
+
+
+            # Check if the selected item via the number keys and the variable selected slot is a wood tile
+            if selected_item == 'wood_tile.png':
+                # Get the tile coordinates where the player clicked
+                tile_x = (mouse_x + camera_x) // TILE_SIZE
+                tile_y = (mouse_y + camera_y) // TILE_SIZE
+
+                # Place the wood tile on the ground if it's a valid position (e.g., not on water)
+                if tilemap[tile_y][tile_x] != WATER:
+                    # Update the tilemap
+                    tilemap[tile_y][tile_x] = WOODTILE
+
+                    # Remove one wood tile from the hotbar
+                    hotbar.remove_item(selected_item)
+
+            # Check if the selected item via the number keys and the variable selected slot is a stone tile
+            if selected_item == 'stone_tile.png':
+                # Get the tile coordinates where the player clicked
+                tile_x = (mouse_x + camera_x) // TILE_SIZE
+                tile_y = (mouse_y + camera_y) // TILE_SIZE
+
+                # Place the wood tile on the ground if it's a valid position (e.g., not on water)
+                if tilemap[tile_y][tile_x] != WATER:
+                    # Update the tilemap
+                    tilemap[tile_y][tile_x] = STONETILE
+
+                    # Remove one wood tile from the hotbar
+                    hotbar.remove_item(selected_item)
+
+
+
+
+
+            # Remove consumed materials from the hotbar
+            for item in items_to_remove:
+                hotbar.remove_item(item)
+        #By using a separate list (items_to_remove) to store the items that need to be removed and removing them outside the loop, you avoid modifying the hotbar list while iterating over it. This should prevent unexpected behavior and potential crashes in your game.
+        #Additionally, ensure that the item names and file paths are correct to avoid any issues with item identification.
+
+
 
     
     camera_x = player_x - SCREEN_WIDTH // 2
@@ -279,12 +432,31 @@ while running:
                 screen.blit(grass_surface, (tile_x, tile_y))
             elif tile_type == WATER:
                 screen.blit(water_surface, (tile_x, tile_y))
-            
+
+            #here I assume is where I put a code line to handle building tiles 
+            elif tile_type == WOODTILE:
+                screen.blit(wood_tile_icon, (tile_x, tile_y))
+
+            elif tile_type == STONETILE:
+                screen.blit(stone_tile_icon, (tile_x, tile_y))
 
             # Check for border tiles
             if row == 0 or row == MAP_SIZE - 1 or col == 0 or col == MAP_SIZE - 1:
                 screen.blit(blockwall_surface, (tile_x, tile_y))
                     
+
+    # Update redberry bush spawn timer
+    current_time = pygame.time.get_ticks()  # Get current time in milliseconds
+    if current_time - redberrybush_spawn_timer > REDBERRYBUSH_SPAWN_COOLDOWN and current_redberrybush_count < MAX_REDBERRYBUSHES:
+        # Spawn a new redberry bush
+        x = random.randint(0, MAP_SIZE - 1) * TILE_SIZE
+        y = random.randint(0, MAP_SIZE - 1) * TILE_SIZE
+        redberrybush = Redberrybush(x, y)
+        redberrybushes.append(redberrybush)
+        
+        # Update timer and redberry bush count
+        redberrybush_spawn_timer = current_time
+        current_redberrybush_count += 1
     #here I want to blit or display my plants
     for redberrybush in redberrybushes:
         bush_x, bush_y = redberrybush.x - camera_x, redberrybush.y - camera_y
@@ -357,14 +529,19 @@ while running:
                 
 
     # Draw Game Elements Here
-    if show_crafting_window:
-        screen.blit(crafting_window_image, crafting_window_rect.topleft)
-        screen.blit(wood_spear_image, wood_spear_image_rect)
+    if show_crafting_window: 
+        screen.blit(crafting_window_image, crafting_window_rect.topleft)#this is the window that gets displayed when I press c
+        screen.blit(wood_spear_image, wood_spear_image_rect) #this is an icon of an item I want the player to be able to click on and craft if they have the right materials
+        screen.blit(wood_tile_icon, wood_tile_icon_rect)
+        screen.blit(redberrysnack_image, redberrysnack_icon_rect)
+        screen.blit(stone_tile_icon, stone_tile_icon_rect)
 
 
     # Draw the player on the screen relative to the camera position
     screen.blit(player_image, (player_x - camera_x, player_y - camera_y))
 
+    if show_help_window:
+        screen.blit(help_window, help_window_rect)
     
 
   
