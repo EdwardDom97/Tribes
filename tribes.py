@@ -28,7 +28,7 @@ pygame.init()
 # Constants for my screen
 SCREEN_WIDTH, SCREEN_HEIGHT = 1600, 900 #basic screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT)) #basic variable using the screen variables width and height above
-pygame.display.set_caption('TribalSandbox   Tristan Dombroski     Version 0.002 "Berries and Bushes"') #this sets a caption for the application itself
+pygame.display.set_caption('TribalSandbox   Tristan Dombroski     Version 0.003 "Blocks and Berrysnacks"') #this sets a caption for the application itself
 
 clock = pygame.time.Clock() #this will be used to measure time/frames in the game
 
